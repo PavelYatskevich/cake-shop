@@ -11,7 +11,7 @@ export default function PageProductImport() {
       <Box mb={2} display="flex" justifyContent="space-between">
         <CSVFileImport
           url={`${API_PATHS.import}/import`}
-          title="Import desserts CSV"
+          title="Import Products CSV"
         />
         <Button
           size="small"
@@ -21,7 +21,7 @@ export default function PageProductImport() {
           component={Link}
           to={"/admin/product-form"}
         >
-          Create dessert
+          Create product
         </Button>
       </Box>
       <ProductsTable />
