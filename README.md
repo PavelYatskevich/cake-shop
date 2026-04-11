@@ -1,6 +1,7 @@
 # React-shop-cloudfront
 
 cloudfront: dhpw6bwd3hn1p.cloudfront.net
+
 s3: http://fima23-aws-bucket.s3-website.eu-north-1.amazonaws.com/
 
 This is frontend starter project for nodejs-aws mentoring program. It uses the following technologies:
