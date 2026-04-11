@@ -5,40 +5,46 @@ import { AvailableProduct, Product } from "~/models/Product";
 
 export const products: Product[] = [
   {
-    description: "Short Product Description1",
+    description:
+      "Rich cocoa sponge layers with dark chocolate ganache and fresh seasonal berries.",
     id: "7567ec4b-b10c-48c5-9345-fc73c48a80aa",
     price: 24,
-    title: "ProductOne",
+    title: "Velvet chocolate layer cake",
   },
   {
-    description: "Short Product Description7",
+    description:
+      "Buttery tart shell, bright lemon curd, and raspberries with a hint of vanilla.",
     id: "7567ec4b-b10c-48c5-9345-fc73c48a80a1",
     price: 15,
-    title: "ProductTitle",
+    title: "Lemon raspberry tart",
   },
   {
-    description: "Short Product Description2",
+    description:
+      "Creamy New York–style cheesecake with salted caramel drizzle and pecan crumble.",
     id: "7567ec4b-b10c-48c5-9345-fc73c48a80a3",
     price: 23,
-    title: "Product",
+    title: "Salted caramel cheesecake",
   },
   {
-    description: "Short Product Description4",
+    description:
+      "Box of six — pistachio, rose, and chocolate shells with silky buttercream.",
     id: "7567ec4b-b10c-48c5-9345-fc73348a80a1",
     price: 15,
-    title: "ProductTest",
+    title: "Assorted French macarons (6)",
   },
   {
-    description: "Short Product Descriptio1",
+    description:
+      "Espresso-soaked ladyfingers, mascarpone mousse, and a dusting of cocoa.",
     id: "7567ec4b-b10c-48c5-9445-fc73c48a80a2",
     price: 23,
-    title: "Product2",
+    title: "Classic tiramisu",
   },
   {
-    description: "Short Product Description7",
+    description:
+      "Four vanilla bean cupcakes with Swiss meringue buttercream and sprinkles.",
     id: "7567ec4b-b10c-45c5-9345-fc73c48a80a1",
     price: 15,
-    title: "ProductName",
+    title: "Vanilla bean cupcakes (4)",
   },
 ];
 
@@ -49,19 +55,21 @@ export const availableProducts: AvailableProduct[] = products.map(
 export const cart: CartItem[] = [
   {
     product: {
-      description: "Short Product Description1",
+      description:
+        "Rich cocoa sponge layers with dark chocolate ganache and fresh seasonal berries.",
       id: "7567ec4b-b10c-48c5-9345-fc73c48a80aa",
       price: 24,
-      title: "ProductOne",
+      title: "Velvet chocolate layer cake",
     },
     count: 2,
   },
   {
     product: {
-      description: "Short Product Description7",
+      description:
+        "Four vanilla bean cupcakes with Swiss meringue buttercream and sprinkles.",
       id: "7567ec4b-b10c-45c5-9345-fc73c48a80a1",
       price: 15,
-      title: "ProductName",
+      title: "Vanilla bean cupcakes (4)",
     },
     count: 5,
   },

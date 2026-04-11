@@ -33,7 +33,7 @@ export default function Header() {
             underline="none"
             to="/"
           >
-            My Store!
+            Sugar & Crumb
           </Link>
         </Typography>
 
@@ -76,7 +76,7 @@ export default function Header() {
                 to="/admin/products"
                 onClick={handleClose}
               >
-                Manage products
+                Manage desserts
               </MenuItem>
             </Menu>
           </div>
