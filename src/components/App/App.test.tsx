@@ -14,15 +14,15 @@ test("Renders products list", async () => {
   const products: AvailableProduct[] = [
     {
       id: "1",
-      title: "Chocolate fudge brownie",
-      description: "Dense brownie with dark chocolate chunks.",
+      title: "Product 1",
+      description: "Product 1 description",
       price: 1,
       count: 1,
     },
     {
       id: "2",
-      title: "Strawberry pavlova",
-      description: "Crisp meringue with cream and fresh berries.",
+      title: "Product 2",
+      description: "Product 2 description",
       price: 2,
       count: 2,
     },
