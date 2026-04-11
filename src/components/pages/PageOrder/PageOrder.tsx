@@ -108,7 +108,7 @@ export default function PageOrder() {
                     fullWidth
                     helperText={
                       values.status === OrderStatus.Approved
-                        ? "Setting status to APPROVED will decrease dessert count in stock"
+                        ? "Setting status to APPROVED will decrease products count from stock"
                         : undefined
                     }
                   >

@@ -42,7 +42,7 @@ export default function PageProductForm() {
   return (
     <PaperLayout>
       <Typography component="h1" variant="h4" align="center" mb={2}>
-        {id ? "Edit dessert" : "Create new dessert"}
+        {id ? "Edit product" : "Create new product"}
       </Typography>
       {isLoading ? (
         <>Loading...</>
@@ -109,7 +109,7 @@ export default function PageProductForm() {
                     color="primary"
                     disabled={!dirty || isSubmitting}
                   >
-                    Save dessert
+                    Save Product
                   </Button>
                 </Grid>
               </Grid>

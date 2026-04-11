@@ -10,7 +10,7 @@ function Copyright() {
     <Typography variant="body2" color="textSecondary" align="center">
       {"Copyright © "}
       <Link color="inherit" href="https://material-ui.com/" underline="hover">
-        Sugar & Crumb
+        My Store
       </Link>{" "}
       {new Date().getFullYear()}
       {"."}
@@ -37,7 +37,7 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           color="textSecondary"
           component="p"
         >
-          Thank you — we hope every bite is wonderful!
+          Thank you for your purchase!
         </Typography>
         <Copyright />
       </Box>
