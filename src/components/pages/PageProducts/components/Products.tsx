@@ -8,6 +8,15 @@ import { formatAsPrice } from "~/utils/utils";
 import AddProductToCart from "~/components/AddProductToCart/AddProductToCart";
 import { useAvailableProducts } from "~/queries/products";
 
+const dessertImages = [
+  "https://images.unsplash.com/photo-1578985545062-69928b1d9587?auto=format&fit=crop&w=800&q=80",
+  "https://images.unsplash.com/photo-1519915028121-7d3463d20b13?auto=format&fit=crop&w=800&q=80",
+  "https://images.unsplash.com/photo-1533134242443-d4fd215305ad?auto=format&fit=crop&w=800&q=80",
+  "https://images.unsplash.com/photo-1558636508-e0db381681bd?auto=format&fit=crop&w=800&q=80",
+  "https://images.unsplash.com/photo-1571877227200-a0d98ea607e9?auto=format&fit=crop&w=800&q=80",
+  "https://images.unsplash.com/photo-1576618148400-f54bed99fcfd?auto=format&fit=crop&w=800&q=80",
+];
+
 export default function Products() {
   const { data = [], isLoading } = useAvailableProducts();
 
@@ -25,12 +34,15 @@ export default function Products() {
           >
             <CardMedia
               sx={{ pt: "56.25%" }}
-              image={`https://source.unsplash.com/random?sig=${index}`}
-              title="Image title"
+              image={dessertImages[index % dessertImages.length]}
+              title={product.title}
             />
             <CardContent sx={{ flexGrow: 1 }}>
               <Typography gutterBottom variant="h5" component="h2">
                 {product.title}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" paragraph>
+                {product.description}
               </Typography>
               <Typography>{formatAsPrice(product.price)}</Typography>
             </CardContent>

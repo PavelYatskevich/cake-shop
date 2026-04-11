@@ -24,7 +24,7 @@ const initialAddressValues = AddressSchema.cast({});
 
 const CartIsEmpty = () => (
   <Typography variant="h6" gutterBottom>
-    The cart is empty. Didn&apos;t you like anything in our shop?
+    Your cart is empty — add a cake or treat to get started!
   </Typography>
 );
 
