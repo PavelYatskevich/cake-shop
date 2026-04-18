@@ -1,5 +1,9 @@
 # React-shop-cloudfront
 
+- **CloudFront:** https://dhpw6bwd3hn1p.cloudfront.net
+- **S3 static website:** http://fima23-aws-bucket.s3-website.eu-north-1.amazonaws.com/
+- Products api endpoint: https://fn4tlfb8nk.execute-api.us-east-1.amazonaws.com/prod/products/
+
 This is frontend starter project for nodejs-aws mentoring program. It uses the following technologies:
 
 - [Vite](https://vitejs.dev/) as a project bundler
@@ -10,6 +14,7 @@ This is frontend starter project for nodejs-aws mentoring program. It uses the f
 - [Formik](https://formik.org/) as a form library
 - [Yup](https://github.com/jquense/yup) as a validation schema
 - [Serverless](https://serverless.com/) as a serverless framework
+- [AWS CDK](https://aws.amazon.com/cdk/) for infrastructure as code (`infra/`)
 - [Vitest](https://vitest.dev/) as a test runner
 - [MSW](https://mswjs.io/) as an API mocking library
 - [Eslint](https://eslint.org/) as a code linting tool
@@ -69,3 +74,21 @@ Combination of `cloudfront:setup` and `cloudfront:build:deploy` commands with or
 ### `serverless:remove`
 
 Remove an entire stack configured in `serverless.yml` via CloudFormation.
+
+### `infra:install`
+
+Runs `npm install` in the `infra` folder. Use once after clone (or whenever `infra/node_modules` is missing) before CDK commands.
+
+### `cdk:synth`
+
+Builds the React app into `dist/`, then synthesizes the CDK stack in `infra/` (CloudFormation template).
+
+### `cdk:deploy`
+
+Builds the app and deploys the CDK stack. Uploads `dist/` to the stack’s S3 bucket and invalidates CloudFront (`BucketDeployment` with `distributionPaths`).
+
+### `cdk:destroy`
+
+Destroys the CDK-provisioned stack (S3 bucket and CloudFront distribution defined in `DeployWebAppStack`).
+
+Configure AWS credentials (for example `aws configure` or environment variables). For an explicit account and region, set `CDK_DEFAULT_ACCOUNT` and `CDK_DEFAULT_REGION` before deploy.
