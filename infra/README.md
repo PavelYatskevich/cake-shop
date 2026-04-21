@@ -1,14 +1,17 @@
-# Welcome to your CDK TypeScript project
+# CDK — static site (S3 + CloudFront)
 
-This is a blank project for CDK development with TypeScript.
+The `DeployWebAppStack` provisions a private S3 bucket, a CloudFront distribution (origin access), and deploys the **parent app’s** production build from `../dist`.
 
-The `cdk.json` file tells the CDK Toolkit how to execute your app.
+From the **repository root**, prefer:
 
-## Useful commands
+- `npm run cdk:synth` — build the SPA and synthesize
+- `npm run cdk:deploy` — build and deploy (includes CloudFront invalidation on content changes)
+- `npm run cdk:destroy` — tear down the stack
 
-* `npm run build`   compile typescript to js
-* `npm run watch`   watch for changes and compile
-* `npm run test`    perform the jest unit tests
-* `npx cdk deploy`  deploy this stack to your default AWS account/region
-* `npx cdk diff`    compare deployed stack with current state
-* `npx cdk synth`   emits the synthesized CloudFormation template
+From this directory, after `npm run build` in the parent project:
+
+* `npm run build` — compile TypeScript
+* `npm run synth` / `npm run deploy` / `npm run destroy` — CDK CLI wrappers
+* `npx cdk diff` — compare deployed stack with current state
+
+The `cdk.json` file tells the CDK Toolkit how to execute the app.
