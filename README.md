@@ -2,6 +2,7 @@
 
 - **CloudFront:** https://dhpw6bwd3hn1p.cloudfront.net
 - **S3 static website:** http://fima23-aws-bucket.s3-website.eu-north-1.amazonaws.com/
+- Products api endpoint: https://fn4tlfb8nk.execute-api.us-east-1.amazonaws.com/prod/products/
 
 This is frontend starter project for nodejs-aws mentoring program. It uses the following technologies:
 
