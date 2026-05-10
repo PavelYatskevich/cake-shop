@@ -13,12 +13,14 @@ import { formatAsPrice } from "~/utils/utils";
 test("Renders products list", async () => {
   const products: Product[] = [
     {
+      count: 3,
       id: "1",
       title: "Product 1",
       description: "Product 1 description",
       price: 1,
     },
     {
+      count: 7,
       id: "2",
       title: "Product 2",
       description: "Product 2 description",
