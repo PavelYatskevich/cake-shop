@@ -13,14 +13,14 @@ export class ProductServiceStack extends cdk.Stack {
       runtime: lambda.Runtime.NODEJS_20_X,
       memorySize: 1024,
       timeout: cdk.Duration.seconds(5),
-      entry: path.join(__dirname, 'handler.ts'),
+      entry: path.join(__dirname, 'hello-lambda', 'handler.ts'),
       handler: 'getProductsList',
     });
     const getProductsByIdLambda = new NodejsFunction(this, 'get-product-by-id', {
       runtime: lambda.Runtime.NODEJS_20_X,
       memorySize: 1024,
       timeout: cdk.Duration.seconds(5),
-      entry: path.join(__dirname, 'handler.ts'),
+      entry: path.join(__dirname, 'hello-lambda', 'handler.ts'),
       handler: 'getProductsById',
     });
 

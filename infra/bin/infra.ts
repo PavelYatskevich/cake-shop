@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 import * as cdk from "aws-cdk-lib";
 import { DeployWebAppStack } from '../lib/deploy-web-app-stack';
-import { ProductServiceStack } from '../lib/hello-lambda/hello-lambda-stack';
+import { ProductServiceStack } from '../lib/product-service-stack';
+import { ImportServiceStack } from '../lib/import-service-stack';
 
 
 const app = new cdk.App();
@@ -12,3 +13,9 @@ new DeployWebAppStack(app, 'DeployWebAppStack', {
   },
 });
 new ProductServiceStack(app, 'ProductServiceStack');
+new ImportServiceStack(app, 'ImportServiceStack', {
+  env: {
+    account: process.env.CDK_DEFAULT_ACCOUNT,
+    region: process.env.CDK_DEFAULT_REGION,
+  },
+});
