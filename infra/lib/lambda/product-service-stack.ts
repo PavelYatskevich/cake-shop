@@ -2,8 +2,12 @@ import * as cdk from "aws-cdk-lib";
 import * as apigateway from "aws-cdk-lib/aws-apigateway";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as lambda from "aws-cdk-lib/aws-lambda";
+import * as lambdaEventSources from "aws-cdk-lib/aws-lambda-event-sources";
 import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
 import * as rds from "aws-cdk-lib/aws-rds";
+import * as sns from "aws-cdk-lib/aws-sns";
+import * as snsSubs from "aws-cdk-lib/aws-sns-subscriptions";
+import * as sqs from "aws-cdk-lib/aws-sqs";
 import * as path from "path";
 import { Construct } from "constructs";
 
@@ -12,9 +16,25 @@ const lambdaBundlingOptions = {
   sourceMap: true,
 };
 
+export interface ProductServiceStackProps extends cdk.StackProps {
+  /** Email address that confirms the AWS SNS subscription for `createProductTopic`. */
+  createProductNotificationEmail?: string;
+}
+
 export class ProductServiceStack extends cdk.Stack {
-  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+  public readonly catalogItemsQueue: sqs.Queue;
+
+  constructor(scope: Construct, id: string, props?: ProductServiceStackProps) {
     super(scope, id, props);
+
+    const notificationEmail =
+      props?.createProductNotificationEmail ??
+      (this.node.tryGetContext("createProductNotificationEmail") as string | undefined);
+    if (!notificationEmail?.trim()) {
+      throw new Error(
+        "Set createProductNotificationEmail on ProductServiceStack props or add context key createProductNotificationEmail in cdk.json for the SNS email subscription.",
+      );
+    }
 
     const vpc = new ec2.Vpc(this, "ProductServiceVpc", {
       maxAzs: 2,
@@ -91,6 +111,41 @@ export class ProductServiceStack extends cdk.Stack {
     databaseSecret.grantRead(getProductsByIdLambda);
     databaseSecret.grantRead(createProductLambda);
 
+    const catalogItemsQueue = new sqs.Queue(this, "catalogItemsQueue", {
+      queueName: "catalogItemsQueue",
+      visibilityTimeout: cdk.Duration.seconds(120),
+    });
+    this.catalogItemsQueue = catalogItemsQueue;
+
+    const createProductTopic = new sns.Topic(this, "createProductTopic", {
+      topicName: "createProductTopic",
+    });
+    createProductTopic.addSubscription(new snsSubs.EmailSubscription(notificationEmail.trim()));
+
+    const catalogBatchProcessLambda = new NodejsFunction(this, "catalogBatchProcess", {
+      runtime: lambda.Runtime.NODEJS_20_X,
+      memorySize: 1024,
+      timeout: cdk.Duration.seconds(60),
+      entry: path.join(__dirname, "handler.ts"),
+      handler: "catalogBatchProcess",
+      environment: {
+        DATABASE_SECRET_ARN: databaseSecret.secretArn,
+        CREATE_PRODUCT_TOPIC_ARN: createProductTopic.topicArn,
+      },
+      bundling: lambdaBundlingOptions,
+      ...lambdaVpcProps,
+    });
+
+    databaseSecret.grantRead(catalogBatchProcessLambda);
+    createProductTopic.grantPublish(catalogBatchProcessLambda);
+    catalogItemsQueue.grantConsumeMessages(catalogBatchProcessLambda);
+    catalogBatchProcessLambda.addEventSource(
+      new lambdaEventSources.SqsEventSource(catalogItemsQueue, {
+        batchSize: 5,
+        reportBatchItemFailures: true,
+      }),
+    );
+
     const api = new apigateway.RestApi(this, "product-service-api", {
       restApiName: "Product Service API",
       description: "HTTP API for Product Service",
@@ -139,6 +194,14 @@ export class ProductServiceStack extends cdk.Stack {
     new cdk.CfnOutput(this, "DatabaseSecretArn", {
       value: databaseSecret.secretArn,
       description: "Secrets Manager ARN for DB credentials (use for local seed; do not commit secret values)",
+    });
+    new cdk.CfnOutput(this, "CatalogItemsQueueUrl", {
+      value: catalogItemsQueue.queueUrl,
+      description: "SQS URL for CSV catalog lines (Import Service sends here)",
+    });
+    new cdk.CfnOutput(this, "CreateProductTopicArn", {
+      value: createProductTopic.topicArn,
+      description: "SNS topic ARN for catalog batch product creation notifications",
     });
   }
 }

@@ -12,7 +12,7 @@ new DeployWebAppStack(app, 'DeployWebAppStack', {
     region: process.env.CDK_DEFAULT_REGION,
   },
 });
-new ProductServiceStack(app, 'ProductServiceStack', {
+const productServiceStack = new ProductServiceStack(app, 'ProductServiceStack', {
   env: {
     account: process.env.CDK_DEFAULT_ACCOUNT,
     region: process.env.CDK_DEFAULT_REGION,
@@ -23,4 +23,5 @@ new ImportServiceStack(app, 'ImportServiceStack', {
     account: process.env.CDK_DEFAULT_ACCOUNT,
     region: process.env.CDK_DEFAULT_REGION,
   },
+  catalogItemsQueue: productServiceStack.catalogItemsQueue,
 });

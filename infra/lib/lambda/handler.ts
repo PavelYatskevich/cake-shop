@@ -1,5 +1,11 @@
+import { PublishCommand, SNSClient } from "@aws-sdk/client-sns";
 import { GetSecretValueCommand, SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
-import type { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
+import type {
+  APIGatewayProxyEvent,
+  APIGatewayProxyResult,
+  SQSEvent,
+  SQSBatchItemFailure,
+} from "aws-lambda";
 import { Pool, type PoolConfig } from "pg";
 import { v4 as uuidv4 } from "uuid";
 import { ensureTables } from "./db/migrate.js";
@@ -27,6 +33,7 @@ type RdsSecretPayload = {
 };
 
 const secretsClient = new SecretsManagerClient({ region: process.env.AWS_REGION ?? "us-east-1" });
+const snsClient = new SNSClient({ region: process.env.AWS_REGION ?? "us-east-1" });
 
 let pool: Pool | null = null;
 let schemaReady = false;
@@ -129,7 +136,36 @@ type ValidatedCreateProduct = {
   count: number;
 };
 
-const validateCreateProductPayload = (payload: unknown): { ok: true; data: ValidatedCreateProduct } | { ok: false; message: string } => {
+const coerceFiniteNumber = (value: unknown): number | undefined => {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string" && value.trim() !== "") {
+    const n = Number(value);
+    if (Number.isFinite(n)) {
+      return n;
+    }
+  }
+  return undefined;
+};
+
+const coerceNonNegativeInt = (value: unknown): number | undefined => {
+  if (typeof value === "number" && Number.isInteger(value)) {
+    return value >= 0 ? value : undefined;
+  }
+  if (typeof value === "string" && value.trim() !== "") {
+    const n = Number.parseInt(value, 10);
+    if (Number.isInteger(n) && n >= 0) {
+      return n;
+    }
+  }
+  return undefined;
+};
+
+/** Shared by HTTP createProduct and SQS catalogBatchProcess (CSV payloads use numeric strings). */
+export const validateCreateProductPayload = (
+  payload: unknown,
+): { ok: true; data: ValidatedCreateProduct } | { ok: false; message: string } => {
   if (payload === null || typeof payload !== "object" || Array.isArray(payload)) {
     return { ok: false, message: "Request body must be a JSON object" };
   }
@@ -160,26 +196,63 @@ const validateCreateProductPayload = (payload: unknown): { ok: true; data: Valid
   if (body.price === undefined || body.price === null) {
     return { ok: false, message: "price is required" };
   }
-  if (typeof body.price !== "number" || !Number.isFinite(body.price)) {
+  const price = coerceFiniteNumber(body.price);
+  if (price === undefined) {
     return { ok: false, message: "price must be a finite number" };
   }
-  if (body.price <= 0) {
+  if (price <= 0) {
     return { ok: false, message: "price must be positive" };
   }
 
   let count = 0;
   if (body.count !== undefined && body.count !== null) {
-    if (typeof body.count !== "number" || !Number.isInteger(body.count)) {
-      return { ok: false, message: "count must be an integer" };
+    const c = coerceNonNegativeInt(body.count);
+    if (c === undefined) {
+      return { ok: false, message: "count must be a non-negative integer" };
     }
-    if (body.count < 0) {
-      return { ok: false, message: "count must be at least 0" };
-    }
-    count = body.count;
+    count = c;
   }
 
-  return { ok: true, data: { title, description, price: body.price, count } };
+  return { ok: true, data: { title, description, price, count } };
 };
+
+async function persistNewProduct(validated: ValidatedCreateProduct): Promise<ProductWithStock> {
+  const id = uuidv4();
+  const p = await getPoolWithSchema();
+  const client = await p.connect();
+
+  try {
+    await client.query("BEGIN");
+    await client.query(
+      `
+          INSERT INTO products (id, title, description, price)
+          VALUES ($1, $2, $3, $4)
+        `,
+      [id, validated.title, validated.description, validated.price],
+    );
+    await client.query(
+      `
+          INSERT INTO stocks (product_id, count)
+          VALUES ($1, $2)
+        `,
+      [id, validated.count],
+    );
+    await client.query("COMMIT");
+  } catch (transactionError) {
+    await client.query("ROLLBACK").catch(() => undefined);
+    throw transactionError;
+  } finally {
+    client.release();
+  }
+
+  return {
+    id,
+    title: validated.title,
+    description: validated.description,
+    price: validated.price,
+    count: validated.count,
+  };
+}
 
 export async function getProductsList(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   logIncomingRequest("getProductsList", event);
@@ -322,43 +395,7 @@ export async function createProduct(event: APIGatewayProxyEvent): Promise<APIGat
       };
     }
 
-    const { title, description, price, count } = validation.data;
-    const id = uuidv4();
-
-    const p = await getPoolWithSchema();
-    const client = await p.connect();
-
-    try {
-      await client.query("BEGIN");
-      await client.query(
-        `
-          INSERT INTO products (id, title, description, price)
-          VALUES ($1, $2, $3, $4)
-        `,
-        [id, title, description, price],
-      );
-      await client.query(
-        `
-          INSERT INTO stocks (product_id, count)
-          VALUES ($1, $2)
-        `,
-        [id, count],
-      );
-      await client.query("COMMIT");
-    } catch (transactionError) {
-      await client.query("ROLLBACK").catch(() => undefined);
-      throw transactionError;
-    } finally {
-      client.release();
-    }
-
-    const product: ProductWithStock = {
-      id,
-      title,
-      description,
-      price,
-      count,
-    };
+    const product = await persistNewProduct(validation.data);
 
     return {
       statusCode: 201,
@@ -375,4 +412,69 @@ export async function createProduct(event: APIGatewayProxyEvent): Promise<APIGat
     );
     return internalServerError();
   }
+}
+
+export async function catalogBatchProcess(event: SQSEvent): Promise<{ batchItemFailures: SQSBatchItemFailure[] }> {
+  const topicArn = process.env.CREATE_PRODUCT_TOPIC_ARN;
+  if (!topicArn) {
+    throw new Error("CREATE_PRODUCT_TOPIC_ARN environment variable is required");
+  }
+
+  const failures: SQSBatchItemFailure[] = [];
+  const created: ProductWithStock[] = [];
+
+  for (const record of event.Records) {
+    try {
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(record.body ?? "") as unknown;
+      } catch {
+        failures.push({ itemIdentifier: record.messageId });
+        continue;
+      }
+
+      const validation = validateCreateProductPayload(parsed);
+      if (!validation.ok) {
+        console.warn(
+          JSON.stringify({
+            level: "warn",
+            handler: "catalogBatchProcess",
+            message: validation.message,
+            messageId: record.messageId,
+          }),
+        );
+        failures.push({ itemIdentifier: record.messageId });
+        continue;
+      }
+
+      const product = await persistNewProduct(validation.data);
+      created.push(product);
+    } catch (error) {
+      console.error(
+        JSON.stringify({
+          level: "error",
+          handler: "catalogBatchProcess",
+          messageId: record.messageId,
+          error: error instanceof Error ? error.message : String(error),
+        }),
+      );
+      failures.push({ itemIdentifier: record.messageId });
+    }
+  }
+
+  if (created.length > 0) {
+    await snsClient.send(
+      new PublishCommand({
+        TopicArn: topicArn,
+        Subject: `Created ${created.length} product(s) from catalog`,
+        Message: JSON.stringify({
+          event: "catalogProductsCreated",
+          createdCount: created.length,
+          products: created.map((p) => ({ id: p.id, title: p.title, price: p.price, count: p.count })),
+        }),
+      }),
+    );
+  }
+
+  return { batchItemFailures: failures };
 }

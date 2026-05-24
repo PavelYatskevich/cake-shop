@@ -7,9 +7,24 @@ import {
   DeleteObjectCommand,
   PutObjectCommand,
 } from "@aws-sdk/client-s3";
+import { SQSClient, SendMessageCommand } from "@aws-sdk/client-sqs";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import csv from "csv-parser";
 import { Readable } from "stream";
+
+/** Normalizes CSV header keys to match product fields expected by catalogBatchProcess. */
+function rowToCatalogMessage(row: Record<string, string>): { title: string; description: string; price: string; count: string } {
+  const norm: Record<string, string> = {};
+  for (const [key, value] of Object.entries(row)) {
+    norm[key.trim().toLowerCase()] = (value ?? "").trim();
+  }
+  return {
+    title: norm.title ?? "",
+    description: norm.description ?? "",
+    price: norm.price ?? "",
+    count: norm.count !== undefined && norm.count !== "" ? norm.count : "0",
+  };
+}
 
 const defaultHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -101,35 +116,52 @@ export async function importFileParser(event: S3Event): Promise<void> {
       continue;
     }
 
+    const queueUrl = process.env.CATALOG_ITEMS_QUEUE_URL;
+    if (!queueUrl) {
+      throw new Error("CATALOG_ITEMS_QUEUE_URL is not configured");
+    }
+
+    const rows: Record<string, string>[] = [];
     await new Promise<void>((resolve, reject) => {
       body
         .pipe(csv())
         .on("data", (row: Record<string, string>) => {
-          console.log(JSON.stringify(row));
+          rows.push(row);
         })
         .on("error", reject)
-        .on("end", async () => {
-          try {
-            const relative = key.slice("uploaded/".length);
-            const destKey = `parsed/${relative}`;
-            await client.send(
-              new CopyObjectCommand({
-                Bucket: bucket,
-                Key: destKey,
-                CopySource: `${bucket}/${key}`,
-              }),
-            );
-            await client.send(
-              new DeleteObjectCommand({
-                Bucket: bucket,
-                Key: key,
-              }),
-            );
-            resolve();
-          } catch (err) {
-            reject(err);
-          }
-        });
+        .on("end", resolve);
     });
+
+    const sqsClient = new SQSClient({});
+    for (const row of rows) {
+      const payload = rowToCatalogMessage(row);
+      await sqsClient.send(
+        new SendMessageCommand({
+          QueueUrl: queueUrl,
+          MessageBody: JSON.stringify({
+            title: payload.title,
+            description: payload.description,
+            price: payload.price,
+            count: payload.count,
+          }),
+        }),
+      );
+    }
+
+    const relative = key.slice("uploaded/".length);
+    const destKey = `parsed/${relative}`;
+    await client.send(
+      new CopyObjectCommand({
+        Bucket: bucket,
+        Key: destKey,
+        CopySource: `${bucket}/${key}`,
+      }),
+    );
+    await client.send(
+      new DeleteObjectCommand({
+        Bucket: bucket,
+        Key: key,
+      }),
+    );
   }
 }
