@@ -11,6 +11,7 @@ import { Construct } from "constructs";
 
 export interface ImportServiceStackProps extends cdk.StackProps {
   catalogItemsQueue: sqs.IQueue;
+  basicAuthorizerArn: string;
 }
 
 export class ImportServiceStack extends cdk.Stack {
@@ -79,15 +80,70 @@ export class ImportServiceStack extends cdk.Stack {
         allowMethods: ["GET", "OPTIONS"],
       },
     });
+    const authFailureHeaders = {
+      "Access-Control-Allow-Origin": "'*'",
+      "Access-Control-Allow-Headers": "'Content-Type,Authorization'",
+    };
+    api.addGatewayResponse("MissingAuthorizationHeaderResponse", {
+      type: apigateway.ResponseType.UNAUTHORIZED,
+      statusCode: "401",
+      responseHeaders: authFailureHeaders,
+    });
+    api.addGatewayResponse("AccessDeniedResponse", {
+      type: apigateway.ResponseType.ACCESS_DENIED,
+      statusCode: "403",
+      responseHeaders: authFailureHeaders,
+    });
 
     const importResource = api.root.addResource("import");
-    importResource.addMethod(
+    const basicAuthorizer = new apigateway.CfnAuthorizer(this, "ImportBasicAuthorizer", {
+      restApiId: api.restApiId,
+      name: "basicAuthorizer",
+      type: "TOKEN",
+      identitySource: "method.request.header.Authorization",
+      authorizerResultTtlInSeconds: 0,
+      authorizerUri: cdk.Fn.sub(
+        "arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${BasicAuthorizerArn}/invocations",
+        {
+          BasicAuthorizerArn: props.basicAuthorizerArn,
+        },
+      ),
+    });
+
+    const basicAuthorizerPermission = new lambda.CfnPermission(
+      this,
+      "BasicAuthorizerInvocationPermission",
+      {
+        action: "lambda:InvokeFunction",
+        functionName: props.basicAuthorizerArn,
+        principal: "apigateway.amazonaws.com",
+        sourceArn: cdk.Fn.sub(
+          "arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApiId}/authorizers/${AuthorizerId}",
+          {
+            RestApiId: api.restApiId,
+            AuthorizerId: basicAuthorizer.ref,
+          },
+        ),
+      },
+    );
+
+    const importMethod = importResource.addMethod(
       "GET",
       new apigateway.LambdaIntegration(importProductsFileFn),
       {
-        methodResponses: [{ statusCode: "200" }, { statusCode: "400" }],
+        methodResponses: [
+          { statusCode: "200" },
+          { statusCode: "400" },
+          { statusCode: "401" },
+          { statusCode: "403" },
+        ],
       },
     );
+    const importCfnMethod = importMethod.node.defaultChild as apigateway.CfnMethod;
+    importCfnMethod.authorizationType = "CUSTOM";
+    importCfnMethod.authorizerId = basicAuthorizer.ref;
+    importCfnMethod.addDependency(basicAuthorizer);
+    importCfnMethod.addDependency(basicAuthorizerPermission);
 
     new cdk.CfnOutput(this, "ImportServiceApiUrl", {
       value: api.url,
