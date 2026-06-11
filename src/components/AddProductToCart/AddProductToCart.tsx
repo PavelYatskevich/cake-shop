@@ -4,7 +4,12 @@ import CartIcon from "@mui/icons-material/ShoppingCart";
 import Add from "@mui/icons-material/Add";
 import Remove from "@mui/icons-material/Remove";
 import IconButton from "@mui/material/IconButton";
-import { useCart, useInvalidateCart, useUpsertCart } from "~/queries/cart";
+import {
+  useCart,
+  useDeleteCartItem,
+  useInvalidateCart,
+  useUpsertCart,
+} from "~/queries/cart";
 
 type AddProductToCartProps = {
   product: Product;
@@ -13,6 +18,7 @@ type AddProductToCartProps = {
 export default function AddProductToCart({ product }: AddProductToCartProps) {
   const { data = [], isFetching } = useCart();
   const { mutate: upsertCart } = useUpsertCart();
+  const { mutate: deleteCartItem } = useDeleteCartItem();
   const invalidateCart = useInvalidateCart();
   const cartItem = data.find((i) => i.product.id === product.id);
 
@@ -25,10 +31,14 @@ export default function AddProductToCart({ product }: AddProductToCartProps) {
 
   const removeProduct = () => {
     if (cartItem) {
-      upsertCart(
-        { ...cartItem, count: cartItem.count - 1 },
-        { onSuccess: invalidateCart }
-      );
+      const nextCount = cartItem.count - 1;
+
+      if (nextCount <= 0 && product.id) {
+        deleteCartItem(product.id, { onSuccess: invalidateCart });
+        return;
+      }
+
+      upsertCart({ ...cartItem, count: nextCount }, { onSuccess: invalidateCart });
     }
   };
 

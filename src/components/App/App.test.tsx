@@ -35,7 +35,7 @@ test("Renders products list", async () => {
         ctx.json<Product[]>(products)
       );
     }),
-    rest.get(`${API_PATHS.cart}/profile/cart`, (req, res, ctx) => {
+    rest.get(`${API_PATHS.cart}/api/profile/cart`, (req, res, ctx) => {
       return res(ctx.status(200), ctx.json<CartItem[]>([]));
     })
   );
